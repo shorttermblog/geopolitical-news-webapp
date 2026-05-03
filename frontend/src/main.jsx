@@ -112,7 +112,7 @@ function App() {
       setArticles(data.articles || [])
       setSummary(data.summary || '')
       setStats(data.stats || null)
-      setStatus(`Done. ${(data.articles || []).length} articles shown. Article bodies read: ${data.stats?.article_bodies_read ?? 0}.`)
+      setStatus(`Done. ${(data.articles || []).length} articles shown.`)
     } catch (err) {
       setError(cleanError(err))
       setStatus('Error')
@@ -131,7 +131,7 @@ function App() {
                 <Globe2 className="h-4 w-4" /> Geopolitical monitoring dashboard
               </div>
               <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 md:text-5xl">Geopolitical News Intelligence</h1>
-              <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">Search Google News RSS, rank recent articles, extract top article excerpts, and generate a concise AI briefing.</p>
+              <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">Search Google News RSS, rank recent headlines, and generate a concise AI briefing from RSS metadata only.</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-950 px-5 py-4 text-white shadow-lg">
               <div className="text-xs uppercase tracking-wide text-slate-300">Status</div>
@@ -187,7 +187,7 @@ function App() {
                   <option value="keyword">Lightweight keyword ranking</option>
                   <option value="local_embeddings">Local embeddings, like your desktop app</option>
                 </select>
-                <p className="text-xs text-slate-500">Keyword mode is the default for Render stability. Local embeddings require the full requirements file.</p>
+                <p className="text-xs text-slate-500">Keyword mode is recommended for Render Free.</p>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
@@ -201,12 +201,11 @@ function App() {
           </aside>
 
           <section className="space-y-6">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard label="Raw downloaded" value={stats?.raw_downloaded} />
               <StatCard label="Unique" value={stats?.unique_articles} />
               <StatCard label="Recent kept" value={stats?.recent_articles} />
               <StatCard label="Articles shown" value={stats?.articles_shown ?? articles.length} />
-              <StatCard label="Bodies read" value={stats?.article_bodies_read} />
             </div>
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.8fr)]">
