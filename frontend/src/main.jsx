@@ -185,7 +185,7 @@ function App() {
                 <input className="input" type="number" min="1" max="480" value={maxAgeHours} onChange={(e) => setMaxAgeHours(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <FieldLabel>Suggest</FieldLabel>
+                <FieldLabel>Suggest Queries</FieldLabel>
                 <input className="input" type="number" min="1" max="50" value={queryCount} onChange={(e) => setQueryCount(e.target.value)} />
               </div>
             </div>
@@ -193,7 +193,7 @@ function App() {
             <div className="grid grid-cols-3 gap-3 xl:col-start-3">
               <button className="btn-secondary" onClick={suggestQueries} disabled={suggesting || loading}>
                 {suggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Suggest
+                Suggest Queries
               </button>
               <button className="btn-primary" onClick={runMonitor} disabled={loading || suggesting}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
