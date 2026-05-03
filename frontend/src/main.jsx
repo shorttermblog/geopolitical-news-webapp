@@ -45,15 +45,6 @@ function downloadCsv(rows) {
   URL.revokeObjectURL(url)
 }
 
-function StatCard({ label, value }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-slate-950">{value ?? '—'}</div>
-    </div>
-  )
-}
-
 function FieldLabel({ children }) {
   return <label className="text-sm font-semibold text-slate-700">{children}</label>
 }
@@ -67,7 +58,6 @@ function App() {
   const [queryCount, setQueryCount] = useState(5)
   const [articles, setArticles] = useState([])
   const [summary, setSummary] = useState('')
-  const [stats, setStats] = useState(null)
   const [status, setStatus] = useState('Ready')
   const [loading, setLoading] = useState(false)
   const [suggesting, setSuggesting] = useState(false)
@@ -108,7 +98,6 @@ function App() {
     setLoading(true)
     setArticles([])
     setSummary('')
-    setStats(null)
     setStatus(`Fetching RSS articles from ${queryList.length} queries...`)
 
     try {
@@ -123,7 +112,6 @@ function App() {
 
       setArticles(data.articles || [])
       setSummary(data.summary || '')
-      setStats(data.stats || null)
       setStatus(`Done. ${(data.articles || []).length} articles shown.`)
     } catch (err) {
       setError(cleanError(err))
@@ -223,13 +211,6 @@ function App() {
               {error}
             </div>
           )}
-        </section>
-
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Raw downloaded" value={stats?.raw_downloaded} />
-          <StatCard label="Unique" value={stats?.unique_articles} />
-          <StatCard label="Recent kept" value={stats?.recent_articles} />
-          <StatCard label="Articles shown" value={stats?.articles_shown ?? articles.length} />
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(520px,1fr)] 2xl:grid-cols-[minmax(0,1.05fr)_minmax(640px,1fr)]">
