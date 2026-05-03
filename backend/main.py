@@ -40,7 +40,12 @@ class RunRequest(BaseModel):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True}
+    key = os.getenv("OPENAI_API_KEY")
+    return {
+        "ok": True,
+        "openai_key_configured": bool(key),
+        "openai_key_length": len(key) if key else 0,
+    }
 
 
 @app.post("/api/suggest-queries", response_model=SuggestResponse)
