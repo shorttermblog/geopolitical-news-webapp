@@ -135,7 +135,7 @@ function App() {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#e0f2fe,transparent_30%),linear-gradient(180deg,#f8fafc,#eef2ff)] p-4 text-slate-950 md:p-8">
-      <div className="mx-auto max-w-[1600px] space-y-6">
+      <div className="mx-auto max-w-[1700px] space-y-6">
         <header className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-soft backdrop-blur md:p-8">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
             <div>
@@ -232,7 +232,7 @@ function App() {
           <StatCard label="Articles shown" value={stats?.articles_shown ?? articles.length} />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(380px,0.85fr)]">
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(520px,1fr)] 2xl:grid-cols-[minmax(0,1.05fr)_minmax(640px,1fr)]">
           <div className="rounded-[2rem] border border-white/70 bg-white/90 p-5 shadow-soft backdrop-blur">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -245,7 +245,7 @@ function App() {
             </div>
 
             <div className="overflow-hidden rounded-2xl border border-slate-200">
-              <div className="max-h-[720px] overflow-y-auto">
+              <div className="max-h-[760px] overflow-y-auto">
                 <table className="w-full table-fixed border-collapse bg-white text-left text-[13px]">
                   <colgroup>
                     <col className="w-[52px]" />
@@ -253,7 +253,6 @@ function App() {
                     <col />
                     <col className="w-[115px]" />
                     <col className="w-[150px]" />
-                    <col className="w-[170px]" />
                   </colgroup>
                   <thead className="sticky top-0 z-10 bg-slate-950 text-[11px] uppercase tracking-wide text-white">
                     <tr>
@@ -262,13 +261,12 @@ function App() {
                       <th className="px-3 py-3">Title</th>
                       <th className="px-3 py-3">Source</th>
                       <th className="px-3 py-3">Published</th>
-                      <th className="px-3 py-3">Link</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {articles.length === 0 && (
                       <tr>
-                        <td colSpan="6" className="px-4 py-12 text-center text-slate-500">
+                        <td colSpan="5" className="px-4 py-12 text-center text-slate-500">
                           Run the monitor to populate the table.
                         </td>
                       </tr>
@@ -278,21 +276,20 @@ function App() {
                       <tr key={`${row.link}-${idx}`} className="align-top hover:bg-sky-50/60">
                         <td className="px-3 py-4 font-semibold text-slate-950">{row.rank}</td>
                         <td className="px-3 py-4 tabular-nums text-slate-700">{Number(row.score || 0).toFixed(3)}</td>
-                        <td className="px-3 py-4 font-medium leading-5 text-slate-950">{row.title}</td>
-                        <td className="break-words px-3 py-4 text-slate-700">{row.source}</td>
-                        <td className="break-words px-3 py-4 text-slate-600">{row.published}</td>
-                        <td className="px-3 py-4">
+                        <td className="px-3 py-4 font-medium leading-5">
                           <a
-                            className="inline-flex items-start gap-1.5 break-all text-sky-700 hover:text-sky-900 hover:underline"
+                            className="inline-flex items-start gap-1.5 text-sky-800 hover:text-sky-950 hover:underline"
                             href={row.link}
                             target="_blank"
                             rel="noreferrer"
                             title={row.link}
                           >
+                            <span>{row.title}</span>
                             <ExternalLink className="mt-0.5 h-3.5 w-3.5 flex-none" />
-                            <span>Open</span>
                           </a>
                         </td>
+                        <td className="break-words px-3 py-4 text-slate-700">{row.source}</td>
+                        <td className="break-words px-3 py-4 text-slate-600">{row.published}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -306,7 +303,7 @@ function App() {
               <Sparkles className="h-5 w-5 text-sky-300" />
               <h2 className="text-lg font-semibold">AI Briefing</h2>
             </div>
-            <div className="min-h-[720px] whitespace-pre-wrap rounded-2xl border border-white/10 bg-white/[0.06] p-5 text-sm leading-7 text-slate-100">
+            <div className="min-h-[760px] whitespace-pre-wrap rounded-2xl border border-white/10 bg-white/[0.06] p-6 text-sm leading-7 text-slate-100 md:text-[15px]">
               {summary || 'The generated geopolitical briefing will appear here.'}
             </div>
           </div>
