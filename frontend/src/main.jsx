@@ -123,23 +123,23 @@ function App() {
 
   return (
     <main className="app-shell">
-      <div className="mx-auto max-w-[1720px] space-y-6">
+      <div className="mx-auto max-w-[1720px] space-y-4">
         <header className="hero-card">
-          <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-center">
             <div>
               <div className="eyebrow">
                 <Globe2 className="h-4 w-4" /> Geopolitical intelligence monitor
               </div>
-              <h1 className="mt-5 max-w-5xl text-4xl font-semibold tracking-[-0.045em] text-slate-50 md:text-6xl">
+              <h1 className="mt-3 max-w-4xl text-3xl font-semibold tracking-[-0.04em] text-slate-50 md:text-5xl">
                 News monitoring for geopolitical briefings.
               </h1>
-              <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300 md:text-lg">
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 md:text-base">
                 Search Google News RSS, rank recent headlines, and generate a concise briefing from verifiable RSS metadata.
               </p>
             </div>
 
             <div className="status-card">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">System status</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">System status</div>
               <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-50">
                 {(loading || suggesting) && <Loader2 className="h-4 w-4 animate-spin text-cyan-300" />}
                 {status}
@@ -148,18 +148,18 @@ function App() {
           </div>
         </header>
 
-        <section className="panel p-5 md:p-6">
-          <div className="mb-5 flex flex-col gap-3 border-b border-slate-200/80 pb-5 md:flex-row md:items-center md:justify-between">
+        <section className="panel p-4 md:p-5">
+          <div className="mb-4 flex flex-col gap-2 border-b border-slate-200/80 pb-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-950">Monitor setup</h2>
-              <p className="mt-1 text-sm text-slate-500">Keyword ranking is selected for stable deployment and fast response times.</p>
+              <h2 className="text-lg font-semibold tracking-tight text-slate-950">Monitor setup</h2>
+              <p className="mt-0.5 text-sm text-slate-500">Compact controls, stable keyword ranking, fast response times.</p>
             </div>
             <div className="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
               {queryList.length} active queries
             </div>
           </div>
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(260px,0.75fr)_minmax(360px,1.25fr)_minmax(360px,1fr)]">
+          <div className="grid gap-4 xl:grid-cols-[minmax(220px,0.7fr)_minmax(420px,1.35fr)_minmax(420px,1fr)]">
             <div className="space-y-2">
               <FieldLabel>Topic</FieldLabel>
               <input className="input" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Iran war" />
@@ -167,25 +167,25 @@ function App() {
 
             <div className="space-y-2 xl:row-span-2">
               <FieldLabel>Queries</FieldLabel>
-              <textarea className="textarea h-40" value={queries} onChange={(e) => setQueries(e.target.value)} />
+              <textarea className="textarea h-32" value={queries} onChange={(e) => setQueries(e.target.value)} />
               <p className="text-xs font-medium text-slate-500">One query per line.</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               <div className="space-y-2">
-                <FieldLabel>Max articles/query</FieldLabel>
+                <FieldLabel>Max/query</FieldLabel>
                 <input className="input" type="number" min="1" max="500" value={maxArticles} onChange={(e) => setMaxArticles(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <FieldLabel>Top N summary</FieldLabel>
+                <FieldLabel>Top N</FieldLabel>
                 <input className="input" type="number" min="1" max="50" value={topN} onChange={(e) => setTopN(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <FieldLabel>Max article age</FieldLabel>
+                <FieldLabel>Age h</FieldLabel>
                 <input className="input" type="number" min="1" max="480" value={maxAgeHours} onChange={(e) => setMaxAgeHours(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <FieldLabel>Suggested queries</FieldLabel>
+                <FieldLabel>Suggest</FieldLabel>
                 <input className="input" type="number" min="1" max="50" value={queryCount} onChange={(e) => setQueryCount(e.target.value)} />
               </div>
             </div>
@@ -207,15 +207,15 @@ function App() {
           </div>
 
           {error && (
-            <div className="mt-5 whitespace-pre-wrap rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+            <div className="mt-4 whitespace-pre-wrap rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
               {error}
             </div>
           )}
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(560px,1fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(680px,1fr)]">
-          <div className="panel p-4 md:p-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
+        <section className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(560px,1fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(700px,1fr)]">
+          <div className="panel p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <div className="section-icon">
                   <Newspaper className="h-4 w-4" />
@@ -230,8 +230,8 @@ function App() {
               </span>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-              <div className="max-h-[780px] overflow-y-auto">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="max-h-[800px] overflow-y-auto">
                 <table className="w-full table-fixed border-collapse text-left text-[13px]">
                   <colgroup>
                     <col className="w-[52px]" />
@@ -285,7 +285,7 @@ function App() {
           </div>
 
           <div className="briefing-card">
-            <div className="mb-4 flex items-center gap-2">
+            <div className="mb-3 flex items-center gap-2">
               <div className="section-icon-dark">
                 <Sparkles className="h-4 w-4" />
               </div>
