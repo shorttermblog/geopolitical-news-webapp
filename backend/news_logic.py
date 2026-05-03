@@ -6,8 +6,6 @@ from urllib.parse import urlencode
 
 import feedparser
 import pandas as pd
-import requests
-from bs4 import BeautifulSoup
 from openai import OpenAI
 
 try:
@@ -156,50 +154,6 @@ def fetch_multiple_queries(queries, max_articles_per_query=50):
     return df.reset_index(drop=True), total_raw_downloaded, len(df), query_counts
 
 
-def fetch_article_body(url, max_chars=3000, timeout=10):
-    if not url or not isinstance(url, str):
-        return ""
-    try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-        }
-        response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
-        response.raise_for_status()
-        if "text/html" not in response.headers.get("Content-Type", "").lower():
-            return ""
-        soup = BeautifulSoup(response.text, "html.parser")
-        for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form", "noscript", "iframe"]):
-            tag.decompose()
-        paragraphs = []
-        skip_phrases = [
-            "sign up", "subscribe", "cookie", "privacy policy", "terms of service",
-            "all rights reserved", "advertisement", "read more", "follow us",
-            "share this article",
-        ]
-        for p in soup.find_all("p"):
-            text = p.get_text(" ", strip=True)
-            if len(text) < 40:
-                continue
-            lower = text.lower()
-            if any(phrase in lower for phrase in skip_phrases):
-                continue
-            paragraphs.append(text)
-        article_text = " ".join("\n".join(paragraphs).split())
-        return article_text[:max_chars]
-    except Exception:
-        return ""
-
-
-def enrich_top_articles_with_body(df, top_k=5, max_chars=3000):
-    if df.empty:
-        return df
-    df = df.copy()
-    df["body"] = ""
-    for idx in df.head(min(top_k, len(df))).index:
-        df.at[idx, "body"] = fetch_article_body(str(df.at[idx, "link"]), max_chars=max_chars)
-    return df
-
-
 def parse_date(date_str):
     try:
         dt = parsedate_to_datetime(date_str)
@@ -271,14 +225,12 @@ def summarize(df, topic, n=5):
 
     articles_text = ""
     for _, r in df.head(n).iterrows():
-        body = str(r.get("body", "")).strip()
-        body_section = f"Article body excerpt:\n{body}" if body else "Article body excerpt: Not available. Use only the headline and metadata for this item."
         articles_text += f"""
 Rank: {r.get('rank', '')}
 Title: {r.get('title', '')}
+Source: {r.get('source', '')}
 Date: {r.get('published', '')}
 Query: {r.get('query', '')}
-{body_section}
 """
 
     prompt = f"""
@@ -286,18 +238,18 @@ You are a professional geopolitical analyst preparing a clear, high-quality conf
 
 Topic: {topic}
 
-Use only information visible in the provided article titles, metadata, and body excerpts. Do not invent facts. If a body is unavailable, rely only on headline and metadata. Do not imply that you read full articles when only excerpts are provided.
+Use only information visible in the provided RSS article titles, sources, dates, and search-query metadata. Do not invent facts. Do not imply that you read full articles or article bodies.
 
-Produce 4 to 7 bullet points when enough information is available. Each bullet should be 1 to 3 sentences and cover a distinct, meaningful geopolitical development. Combine related headlines, avoid repetition, prioritize material developments, and briefly explain why each matters when supported. Do not print raw URLs. Do not mention source names.
+Produce 4 to 7 bullet points when enough information is available. Each bullet should be 1 to 3 sentences and cover a distinct, meaningful geopolitical development. Combine related headlines, avoid repetition, prioritize material developments, and briefly explain why each matters only when supported by the visible metadata. Do not print raw URLs. Do not mention source names unless necessary for attribution.
 
 End with:
-Takeaway: <clear and professional synthesis of the overall geopolitical situation or direction>
+Takeaway: <clear and professional synthesis of the overall geopolitical situation or direction based only on the visible RSS metadata>
 
 News:
 {articles_text}
 """
     return chat_text(
-        "You are a professional geopolitical analyst. Follow the user's instructions exactly.",
+        "You are a professional geopolitical analyst. Follow the user's instructions exactly and do not claim to have read article bodies.",
         prompt,
         model=os.getenv("OPENAI_SUMMARY_MODEL", "gpt-4.1"),
         temperature=0.2,
@@ -312,7 +264,6 @@ def run_monitor(topic, queries, max_articles=50, top_n=5, max_age_hours=24, rank
     ranked = ranked.head(max_articles).reset_index(drop=True)
     if not ranked.empty:
         ranked["rank"] = ranked.index + 1
-    ranked = enrich_top_articles_with_body(ranked, top_k=top_n, max_chars=3000)
     summary = summarize(ranked, topic, top_n)
 
     table_cols = ["rank", "score", "title", "source", "published", "link"]
@@ -325,10 +276,6 @@ def run_monitor(topic, queries, max_articles=50, top_n=5, max_age_hours=24, rank
             item["score"] = 0
         articles.append(item)
 
-    body_count = 0
-    if "body" in ranked.columns:
-        body_count = int(ranked["body"].fillna("").astype(str).str.strip().ne("").sum())
-
     return {
         "articles": articles,
         "summary": summary,
@@ -337,7 +284,6 @@ def run_monitor(topic, queries, max_articles=50, top_n=5, max_age_hours=24, rank
             "unique_articles": unique_articles,
             "recent_articles": len(df),
             "articles_shown": len(articles),
-            "article_bodies_read": body_count,
             "query_counts": query_counts,
         },
     }
