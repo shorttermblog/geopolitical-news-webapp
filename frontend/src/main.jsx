@@ -131,7 +131,7 @@ function App() {
                 <Globe2 className="h-4 w-4" /> Geopolitical intelligence monitor
               </div>
               <h1 className="mt-5 max-w-5xl text-4xl font-semibold tracking-[-0.045em] text-slate-50 md:text-6xl">
-                News monitoring built for fast geopolitical briefings.
+                News monitoring for geopolitical briefings.
               </h1>
               <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300 md:text-lg">
                 Search Google News RSS, rank recent headlines, and generate a concise briefing from verifiable RSS metadata.
