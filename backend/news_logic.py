@@ -24,6 +24,20 @@ def get_openai_client():
     return OpenAI(api_key=api_key)
 
 
+def chat_text(system_prompt, user_prompt, model, temperature=0.4):
+    """Use Chat Completions because the Render OpenAI package may not support Responses."""
+    client = get_openai_client()
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=temperature,
+    )
+    return response.choices[0].message.content or ""
+
+
 KEYWORD_SUGGESTION_SYSTEM_PROMPT = """
 You are a professional geopolitical news monitoring assistant.
 Your task is to generate effective Google News RSS search queries for a given geopolitics, conflict, security, or international relations topic.
@@ -31,6 +45,19 @@ Google News RSS works best with short keyword queries. Do not make queries too s
 Return only valid JSON in this exact shape: {"queries": ["query one", "query two"]}
 Rules: 2 to 6 words where possible, one angle per query, include at least one broad core query, no explanations, no numbering, no markdown, no duplicate or near-duplicate queries.
 """
+
+
+def extract_json_object(text):
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lower().startswith("json"):
+            text = text[4:].strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        text = text[start:end + 1]
+    return json.loads(text)
 
 
 def suggest_news_queries(topic: str, n: int = 5):
@@ -57,37 +84,14 @@ Return JSON in this exact shape:
 {{"queries": ["query one", "query two"]}}
 """
 
-    client = get_openai_client()
-    response = client.responses.create(
+    output_text = chat_text(
+        KEYWORD_SUGGESTION_SYSTEM_PROMPT,
+        prompt,
         model=os.getenv("OPENAI_QUERY_MODEL", "gpt-4.1-mini"),
-        input=[
-            {"role": "system", "content": KEYWORD_SUGGESTION_SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
         temperature=0.4,
-        text={
-            "format": {
-                "type": "json_schema",
-                "name": "news_query_suggestions",
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "queries": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "minItems": 1,
-                            "maxItems": 50,
-                        }
-                    },
-                    "required": ["queries"],
-                    "additionalProperties": False,
-                },
-                "strict": True,
-            }
-        },
     )
+    data = extract_json_object(output_text)
 
-    data = json.loads(response.output_text)
     cleaned = []
     seen = set()
     for q in data.get("queries", []):
@@ -210,12 +214,14 @@ def filter_recent_articles(df, max_age_hours):
     if df.empty:
         return df
     now = datetime.now(timezone.utc)
+
     def is_recent(date_str):
         published = parse_date(date_str)
         if not published:
             return False
         hours_old = (now - published).total_seconds() / 3600
         return 0 <= hours_old <= max_age_hours
+
     return df[df["published"].apply(is_recent)].reset_index(drop=True)
 
 
@@ -290,9 +296,12 @@ Takeaway: <clear and professional synthesis of the overall geopolitical situatio
 News:
 {articles_text}
 """
-    client = get_openai_client()
-    response = client.responses.create(model=os.getenv("OPENAI_SUMMARY_MODEL", "gpt-4.1"), input=prompt)
-    return response.output_text
+    return chat_text(
+        "You are a professional geopolitical analyst. Follow the user's instructions exactly.",
+        prompt,
+        model=os.getenv("OPENAI_SUMMARY_MODEL", "gpt-4.1"),
+        temperature=0.2,
+    )
 
 
 def run_monitor(topic, queries, max_articles=50, top_n=5, max_age_hours=24, ranking_mode="keyword"):
