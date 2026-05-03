@@ -185,7 +185,7 @@ function App() {
                 <input className="input" type="number" min="1" max="480" value={maxAgeHours} onChange={(e) => setMaxAgeHours(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <FieldLabel>Suggest Queries</FieldLabel>
+                <FieldLabel>Nr Queries</FieldLabel>
                 <input className="input" type="number" min="1" max="50" value={queryCount} onChange={(e) => setQueryCount(e.target.value)} />
               </div>
             </div>
