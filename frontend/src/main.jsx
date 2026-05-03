@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { Download, ExternalLink, Globe2, Loader2, Newspaper, RefreshCw, Sparkles } from 'lucide-react'
 import './styles.css'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '')
 const defaultQueries = ['Iran war', 'Iran Israel', 'Middle East'].join('\n')
 const RANKING_MODE = 'keyword'
 
@@ -13,6 +13,10 @@ function cleanError(error) {
 }
 
 async function postJson(path, payload) {
+  if (!API_BASE) {
+    throw new Error('Missing VITE_API_BASE_URL. Set it in the frontend Static Site environment variables, then rebuild the frontend.')
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
