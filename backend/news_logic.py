@@ -92,7 +92,7 @@ Freshness rules:
 
 Geopolitical relevance rules:
 - Prefer queries likely to surface material geopolitical developments.
-- Prioritize military actions, diplomacy, sanctions, ceasefire talks, territorial changes, leaders, alliances, energy risk, shipping risk, humanitarian impact, refugees, regional spillovers, and international institutions.
+- Prioritize military actions, diplomacy, sanctions, ceasefire talks, territorial changes, leaders, alliances, energy risk, shipping risk, humanitarian impact, refugees, regional spillovers, politics and international institutions.
 - Avoid low-signal opinion commentary unless the topic clearly requires political analysis.
 - Avoid vague or generic queries that are likely to retrieve unrelated articles.
 - For countries, include the country name and one clear angle.
