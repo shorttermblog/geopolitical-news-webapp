@@ -192,8 +192,8 @@ function App() {
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
-                Search Google News RSS, rank recent headlines, and generate a
-                concise briefing from verifiable RSS metadata
+                Search Google News RSS, rank recent headlines and generate a
+                report
               </p>
             </div>
 
