@@ -85,7 +85,7 @@ function App() {
   const [topic, setTopic] = useState('Iran war')
   const [queries, setQueries] = useState(defaultQueries)
   const [maxArticles, setMaxArticles] = useState(50)
-  const [topN, setTopN] = useState(5)
+  const [topN, setTopN] = useState(10)
   const [maxAgeHours, setMaxAgeHours] = useState(24)
   const [queryCount, setQueryCount] = useState(5)
 
@@ -95,6 +95,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [suggesting, setSuggesting] = useState(false)
   const [error, setError] = useState('')
+  const [mobileVisibleCount, setMobileVisibleCount] = useState(5)
 
   const queryList = useMemo(
     () =>
@@ -103,6 +104,11 @@ function App() {
         .map((q) => q.trim())
         .filter(Boolean),
     [queries]
+  )
+
+  const mobileArticles = useMemo(
+    () => articles.slice(0, mobileVisibleCount),
+    [articles, mobileVisibleCount]
   )
 
   async function suggestQueries() {
@@ -146,6 +152,7 @@ function App() {
     setLoading(true)
     setArticles([])
     setSummary('')
+    setMobileVisibleCount(5)
     setStatus(`Fetching RSS articles from ${queryList.length} queries...`)
 
     try {
@@ -206,19 +213,8 @@ function App() {
         </header>
 
         <section className="panel p-4 md:p-5">
-          <div className="mb-4 flex flex-col gap-2 border-b border-slate-200/80 pb-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight text-slate-950">
-                Monitor setup
-              </h2>
-              <p className="mt-0.5 text-sm text-slate-500">
-                Compact controls, stable keyword ranking, fast response times.
-              </p>
-            </div>
-
-            <div className="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
-              {queryList.length} active queries
-            </div>
+          <div className="mb-4 inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+            {queryList.length} active queries
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[minmax(220px,0.7fr)_minmax(420px,1.35fr)_minmax(420px,1fr)]">
@@ -370,7 +366,7 @@ function App() {
                 </div>
               )}
 
-              {articles.map((row, idx) => (
+              {mobileArticles.map((row, idx) => (
                 <article
                   key={`${row.link}-${idx}`}
                   className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
@@ -413,6 +409,19 @@ function App() {
                   </div>
                 </article>
               ))}
+
+              {articles.length > mobileVisibleCount && (
+                <button
+                  className="btn-secondary"
+                  onClick={() =>
+                    setMobileVisibleCount((count) =>
+                      Math.min(count + 5, articles.length)
+                    )
+                  }
+                >
+                  Show 5 more articles
+                </button>
+              )}
             </div>
 
             {/* Desktop table */}
