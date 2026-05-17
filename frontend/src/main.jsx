@@ -299,13 +299,16 @@ function App() {
               </div>
 
               <div className="space-y-2">
-                <FieldLabel>Angle</FieldLabel>
+                <FieldLabel>Monitoring angle</FieldLabel>
                 <textarea
                   className="textarea h-28 sm:h-40"
                   value={keywordPrompt}
                   onChange={(e) => setKeywordPrompt(e.target.value)}
-                  placeholder="Optional: oil, Hormuz, US role, sanctions, ceasefire, markets..."
+                  placeholder="Describe the military situation in the Strait of Hormuz"
                 />
+                <p className="text-xs font-medium text-slate-500">
+                  Used when suggesting RSS queries.
+                </p>
               </div>
 
               <div className="space-y-2">
