@@ -81,8 +81,75 @@ function FieldLabel({ children }) {
   return <label className="label">{children}</label>
 }
 
+function BriefingSummary({ summary, articles, onOpenArticle }) {
+  if (!summary) {
+    return <p>The generated geopolitical briefing will appear here.</p>
+  }
+
+  if (typeof summary === 'string') {
+    return <div className="whitespace-pre-wrap">{summary}</div>
+  }
+
+  const bullets = Array.isArray(summary.bullets) ? summary.bullets : []
+  const takeaway = summary.takeaway || ''
+
+  const validRanks = new Set(
+    articles
+      .map((article) => Number(article.rank))
+      .filter((rank) => Number.isFinite(rank))
+  )
+
+  return (
+    <div className="space-y-4">
+      {bullets.length > 0 ? (
+        <div className="space-y-3">
+          {bullets.map((bullet, idx) => {
+            const refs = Array.isArray(bullet.article_refs)
+              ? bullet.article_refs
+                  .map((ref) => Number(ref))
+                  .filter((ref) => validRanks.has(ref))
+              : []
+
+            return (
+              <div key={idx} className="leading-7">
+                <span>- {bullet.text}</span>
+
+                {refs.length > 0 && (
+                  <span className="ml-2 inline-flex flex-wrap gap-1">
+                    {refs.map((ref) => (
+                      <button
+                        key={ref}
+                        type="button"
+                        className="rounded-md border border-cyan-400/40 px-1.5 py-0.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-400/10 hover:text-cyan-100"
+                        onClick={() => onOpenArticle(ref)}
+                        title={`Open article ${ref}`}
+                      >
+                        [{ref}]
+                      </button>
+                    ))}
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <p>No briefing bullets were generated.</p>
+      )}
+
+      {takeaway && (
+        <div className="border-t border-slate-700 pt-4">
+          <span className="font-semibold text-white">Takeaway: </span>
+          <span>{takeaway}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function App() {
   const [topic, setTopic] = useState('Iran war')
+  const [keywordPrompt, setKeywordPrompt] = useState('')
   const [queries, setQueries] = useState(defaultQueries)
   const [maxArticles, setMaxArticles] = useState(50)
   const [topN, setTopN] = useState(10)
@@ -90,7 +157,7 @@ function App() {
   const [queryCount, setQueryCount] = useState(5)
 
   const [articles, setArticles] = useState([])
-  const [summary, setSummary] = useState('')
+  const [summary, setSummary] = useState(null)
   const [status, setStatus] = useState('Ready')
   const [loading, setLoading] = useState(false)
   const [suggesting, setSuggesting] = useState(false)
@@ -111,6 +178,14 @@ function App() {
     [articles, mobileVisibleCount]
   )
 
+  function openArticleByRank(rank) {
+    const article = articles.find((item) => Number(item.rank) === Number(rank))
+
+    if (article?.link) {
+      window.open(article.link, '_blank', 'noopener,noreferrer')
+    }
+  }
+
   async function suggestQueries() {
     if (!topic.trim()) {
       setError('Please enter a topic first.')
@@ -124,11 +199,12 @@ function App() {
     try {
       const data = await postJson('/api/suggest-queries', {
         topic,
+        user_prompt: keywordPrompt,
         n: Number(queryCount),
       })
 
-      setQueries(data.queries.join('\n'))
-      setStatus(`Suggested ${data.queries.length} queries.`)
+      setQueries((data.queries || []).join('\n'))
+      setStatus(`Suggested ${(data.queries || []).length} queries.`)
     } catch (err) {
       setError(cleanError(err))
       setStatus('Query suggestion error')
@@ -151,7 +227,7 @@ function App() {
     setError('')
     setLoading(true)
     setArticles([])
-    setSummary('')
+    setSummary(null)
     setMobileVisibleCount(5)
     setStatus(`Fetching RSS articles from ${queryList.length} queries...`)
 
@@ -165,9 +241,14 @@ function App() {
         ranking_mode: RANKING_MODE,
       })
 
-      setArticles(data.articles || [])
-      setSummary(data.summary || '')
-      setStatus(`Done. ${(data.articles || []).length} articles shown.`)
+      const nextArticles = data.articles || []
+      const bodiesRead = data.stats?.article_bodies_read ?? 0
+
+      setArticles(nextArticles)
+      setSummary(data.summary || null)
+      setStatus(
+        `Done. ${nextArticles.length} articles shown. Article bodies read: ${bodiesRead}.`
+      )
     } catch (err) {
       setError(cleanError(err))
       setStatus('Error')
@@ -217,114 +298,129 @@ function App() {
             {queryList.length} active queries
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(220px,0.7fr)_minmax(420px,1.35fr)_minmax(420px,1fr)]">
-            <div className="space-y-2">
-              <FieldLabel>Topic</FieldLabel>
-              <input
-                className="input"
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                placeholder="Iran war"
-              />
+          <div className="grid gap-4 xl:grid-cols-[minmax(220px,0.7fr)_minmax(420px,1fr)_minmax(420px,1.35fr)]">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <FieldLabel>Topic</FieldLabel>
+                <input
+                  className="input"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="Iran war"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <FieldLabel>Max/query</FieldLabel>
+                  <input
+                    className="input"
+                    type="number"
+                    min="1"
+                    max="500"
+                    value={maxArticles}
+                    onChange={(e) => setMaxArticles(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <FieldLabel>Top N</FieldLabel>
+                  <input
+                    className="input"
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={topN}
+                    onChange={(e) => setTopN(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <FieldLabel>Age h</FieldLabel>
+                  <input
+                    className="input"
+                    type="number"
+                    min="1"
+                    max="480"
+                    value={maxAgeHours}
+                    onChange={(e) => setMaxAgeHours(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <FieldLabel>Nr Queries</FieldLabel>
+                  <input
+                    className="input"
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={queryCount}
+                    onChange={(e) => setQueryCount(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                <button
+                  className="btn-secondary"
+                  onClick={suggestQueries}
+                  disabled={suggesting || loading}
+                >
+                  {suggesting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  Suggest Queries
+                </button>
+
+                <button
+                  className="btn-primary"
+                  onClick={runMonitor}
+                  disabled={loading || suggesting}
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Run
+                </button>
+
+                <button
+                  className="btn-secondary"
+                  onClick={() => downloadCsv(articles)}
+                  disabled={!articles.length}
+                >
+                  <Download className="h-4 w-4" />
+                  CSV
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-2 xl:row-span-2">
+            <div className="space-y-2">
+              <FieldLabel>Monitoring angle</FieldLabel>
+              <textarea
+                className="textarea h-44"
+                value={keywordPrompt}
+                onChange={(e) => setKeywordPrompt(e.target.value)}
+                placeholder="Optional: describe the monitoring angle, e.g. focus on oil risk, Hormuz, US involvement, sanctions, ceasefire diplomacy, humanitarian impact, or market relevance."
+              />
+              <p className="text-xs font-medium text-slate-500">
+                Used when suggesting RSS queries.
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <FieldLabel>Queries</FieldLabel>
               <textarea
-                className="textarea h-32"
+                className="textarea h-44"
                 value={queries}
                 onChange={(e) => setQueries(e.target.value)}
               />
               <p className="text-xs font-medium text-slate-500">
                 One query per line.
               </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="space-y-2">
-                <FieldLabel>Max/query</FieldLabel>
-                <input
-                  className="input"
-                  type="number"
-                  min="1"
-                  max="500"
-                  value={maxArticles}
-                  onChange={(e) => setMaxArticles(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <FieldLabel>Top N</FieldLabel>
-                <input
-                  className="input"
-                  type="number"
-                  min="1"
-                  max="50"
-                  value={topN}
-                  onChange={(e) => setTopN(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <FieldLabel>Age h</FieldLabel>
-                <input
-                  className="input"
-                  type="number"
-                  min="1"
-                  max="480"
-                  value={maxAgeHours}
-                  onChange={(e) => setMaxAgeHours(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <FieldLabel>Nr Queries</FieldLabel>
-                <input
-                  className="input"
-                  type="number"
-                  min="1"
-                  max="50"
-                  value={queryCount}
-                  onChange={(e) => setQueryCount(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:col-start-3">
-              <button
-                className="btn-secondary"
-                onClick={suggestQueries}
-                disabled={suggesting || loading}
-              >
-                {suggesting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                Suggest Queries
-              </button>
-
-              <button
-                className="btn-primary"
-                onClick={runMonitor}
-                disabled={loading || suggesting}
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                Run
-              </button>
-
-              <button
-                className="btn-secondary"
-                onClick={() => downloadCsv(articles)}
-                disabled={!articles.length}
-              >
-                <Download className="h-4 w-4" />
-                CSV
-              </button>
             </div>
           </div>
 
@@ -358,7 +454,6 @@ function App() {
               </span>
             </div>
 
-            {/* Mobile cards */}
             <div className="space-y-3 md:hidden">
               {articles.length === 0 && (
                 <div className="rounded-xl border border-slate-200 bg-white px-4 py-12 text-center text-slate-500">
@@ -424,7 +519,6 @@ function App() {
               )}
             </div>
 
-            {/* Desktop table */}
             <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white md:block">
               <div className="max-h-[800px] overflow-y-auto">
                 <table className="w-full table-fixed border-collapse text-left text-[13px]">
@@ -512,13 +606,17 @@ function App() {
                   AI Briefing
                 </h2>
                 <p className="text-xs font-medium text-slate-400">
-                  Generated from ranked RSS metadata.
+                  Generated from ranked RSS metadata and available article excerpts.
                 </p>
               </div>
             </div>
 
             <div className="briefing-body">
-              {summary || 'The generated geopolitical briefing will appear here.'}
+              <BriefingSummary
+                summary={summary}
+                articles={articles}
+                onOpenArticle={openArticleByRank}
+              />
             </div>
           </div>
         </section>
