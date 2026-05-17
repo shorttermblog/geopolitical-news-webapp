@@ -247,7 +247,7 @@ function App() {
       setArticles(nextArticles)
       setSummary(data.summary || null)
       setStatus(
-        `Done. ${nextArticles.length} articles shown.`
+        `Done. ${nextArticles.length} articles shown. Article bodies read: ${bodiesRead}.`
       )
     } catch (err) {
       setError(cleanError(err))
@@ -261,51 +261,30 @@ function App() {
     <main className="app-shell">
       <div className="mx-auto w-full max-w-[1720px] space-y-3 sm:space-y-4">
         <header className="hero-card">
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-center">
-            <div>
-              <div className="eyebrow">
-                <Globe2 className="h-4 w-4" />
-                Geopolitical intelligence monitor
-              </div>
-
-              <h1 className="mt-3 max-w-4xl text-2xl font-semibold tracking-[-0.035em] text-slate-50 sm:text-3xl md:text-5xl">
-                News monitoring for geopolitical briefings
-              </h1>
-
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
-                Search Google News RSS, rank recent headlines and generate a
-                report
-              </p>
+          <div>
+            <div className="eyebrow">
+              <Globe2 className="h-4 w-4" />
+              Geopolitical intelligence monitor
             </div>
 
-            <div className="status-card">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                System status
-              </div>
+            <h1 className="mt-3 max-w-4xl text-2xl font-semibold tracking-[-0.035em] text-slate-50 sm:text-3xl md:text-5xl">
+              News monitoring for geopolitical briefings
+            </h1>
 
-              <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-50">
-                {(loading || suggesting) && (
-                  <Loader2 className="h-4 w-4 animate-spin text-cyan-300" />
-                )}
-                {status}
-              </div>
-            </div>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
+              Search Google News RSS, rank recent headlines and generate a
+              report
+            </p>
           </div>
         </header>
 
         <section className="panel p-4 md:p-5">
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
-              {queryList.length} active queries
-            </div>
-
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-              {(loading || suggesting) && (
-                <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
-              )}
+          {(loading || suggesting) && (
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
               {status}
             </div>
-          </div>
+          )}
 
           <div className="monitor-form-grid">
             <div className="top-input-row">
@@ -339,9 +318,6 @@ function App() {
                   value={queries}
                   onChange={(e) => setQueries(e.target.value)}
                 />
-                <p className="text-xs font-medium text-slate-500">
-                  One query per line.
-                </p>
               </div>
             </div>
 
