@@ -294,114 +294,34 @@ function App() {
         </header>
 
         <section className="panel p-4 md:p-5">
-          <div className="mb-4 inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
-            {queryList.length} active queries
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+              {queryList.length} active queries
+            </div>
+
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+              {(loading || suggesting) && (
+                <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+              )}
+              {status}
+            </div>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(220px,0.7fr)_minmax(420px,1fr)_minmax(420px,1.35fr)]">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <FieldLabel>Topic</FieldLabel>
-                <input
-                  className="input"
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder="Iran war"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <FieldLabel>Max/query</FieldLabel>
-                  <input
-                    className="input"
-                    type="number"
-                    min="1"
-                    max="500"
-                    value={maxArticles}
-                    onChange={(e) => setMaxArticles(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <FieldLabel>Top N</FieldLabel>
-                  <input
-                    className="input"
-                    type="number"
-                    min="1"
-                    max="50"
-                    value={topN}
-                    onChange={(e) => setTopN(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <FieldLabel>Age h</FieldLabel>
-                  <input
-                    className="input"
-                    type="number"
-                    min="1"
-                    max="480"
-                    value={maxAgeHours}
-                    onChange={(e) => setMaxAgeHours(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <FieldLabel>Nr Queries</FieldLabel>
-                  <input
-                    className="input"
-                    type="number"
-                    min="1"
-                    max="50"
-                    value={queryCount}
-                    onChange={(e) => setQueryCount(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3">
-                <button
-                  className="btn-secondary"
-                  onClick={suggestQueries}
-                  disabled={suggesting || loading}
-                >
-                  {suggesting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4" />
-                  )}
-                  Suggest Queries
-                </button>
-
-                <button
-                  className="btn-primary"
-                  onClick={runMonitor}
-                  disabled={loading || suggesting}
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                  Run
-                </button>
-
-                <button
-                  className="btn-secondary"
-                  onClick={() => downloadCsv(articles)}
-                  disabled={!articles.length}
-                >
-                  <Download className="h-4 w-4" />
-                  CSV
-                </button>
-              </div>
+          <div className="monitor-form-grid">
+            <div className="space-y-2">
+              <FieldLabel>Topic</FieldLabel>
+              <input
+                className="input"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="Iran war"
+              />
             </div>
 
             <div className="space-y-2">
               <FieldLabel>Monitoring angle</FieldLabel>
               <textarea
-                className="textarea h-44"
+                className="textarea h-28"
                 value={keywordPrompt}
                 onChange={(e) => setKeywordPrompt(e.target.value)}
                 placeholder="Optional: describe the monitoring angle, e.g. focus on oil risk, Hormuz, US involvement, sanctions, ceasefire diplomacy, humanitarian impact, or market relevance."
@@ -414,13 +334,100 @@ function App() {
             <div className="space-y-2">
               <FieldLabel>Queries</FieldLabel>
               <textarea
-                className="textarea h-44"
+                className="textarea h-40"
                 value={queries}
                 onChange={(e) => setQueries(e.target.value)}
               />
               <p className="text-xs font-medium text-slate-500">
                 One query per line.
               </p>
+            </div>
+
+            <div className="monitor-controls-row">
+              <div className="space-y-2">
+                <FieldLabel>Max articles per query</FieldLabel>
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={maxArticles}
+                  onChange={(e) => setMaxArticles(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <FieldLabel>Articles to rank</FieldLabel>
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={topN}
+                  onChange={(e) => setTopN(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <FieldLabel>Max article age</FieldLabel>
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  max="480"
+                  value={maxAgeHours}
+                  onChange={(e) => setMaxAgeHours(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <FieldLabel>Suggested queries</FieldLabel>
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={queryCount}
+                  onChange={(e) => setQueryCount(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="monitor-actions-row">
+              <button
+                className="btn-secondary"
+                onClick={suggestQueries}
+                disabled={suggesting || loading}
+              >
+                {suggesting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Suggest Queries
+              </button>
+
+              <button
+                className="btn-primary"
+                onClick={runMonitor}
+                disabled={loading || suggesting}
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Run Monitor
+              </button>
+
+              <button
+                className="btn-secondary"
+                onClick={() => downloadCsv(articles)}
+                disabled={!articles.length}
+              >
+                <Download className="h-4 w-4" />
+                Export CSV
+              </button>
             </div>
           </div>
 
@@ -606,7 +613,8 @@ function App() {
                   AI Briefing
                 </h2>
                 <p className="text-xs font-medium text-slate-400">
-                  Generated from ranked RSS metadata and available article excerpts.
+                  Generated from ranked RSS metadata and available article
+                  excerpts.
                 </p>
               </div>
             </div>
