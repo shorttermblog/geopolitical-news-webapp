@@ -304,7 +304,7 @@ function App() {
                   className="textarea h-28 sm:h-40"
                   value={keywordPrompt}
                   onChange={(e) => setKeywordPrompt(e.target.value)}
-                  placeholder="Describe the military situation in the Strait of Hormuz"
+                  placeholder="Optional: e.g. Describe the military situation in the Strait of Hormuz"
                 />
                 <p className="text-xs font-medium text-slate-500">
                   Used when suggesting RSS queries.
