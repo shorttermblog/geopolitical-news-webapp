@@ -6,6 +6,8 @@ from urllib.parse import urlencode
 
 import feedparser
 import pandas as pd
+import requests
+from bs4 import BeautifulSoup
 from openai import OpenAI
 
 try:
@@ -57,6 +59,11 @@ The topic may be:
 - alliance or international institution activity
 - geopolitical event with market, security, or humanitarian impact
 
+The user may also provide an optional monitoring instruction.
+This instruction describes the angle, lens, or type of developments the user cares about.
+Use it to guide query selection when provided.
+If no monitoring instruction is provided, generate strong general-purpose queries based only on the topic.
+
 The goal is to retrieve recent, relevant, high-signal news articles.
 
 Important:
@@ -69,7 +76,7 @@ First, infer the most likely geopolitical category internally.
 Do not output the category unless explicitly requested.
 
 Query style rules:
-- Each query should usually contain 2 to 6 words.
+- Each query should usually contain 2, max 3 words.
 - Each query should focus on one main geopolitical angle only.
 - Prefer simple keyword-style searches.
 - Prefer entity + angle format.
@@ -80,6 +87,8 @@ Query style rules:
 - Include at least one broad core query.
 - Include a few angle-specific queries.
 - Vary the angles naturally across repeated generations.
+- Reflect the user's monitoring instruction when provided.
+- Do not overfit to the monitoring instruction so much that queries become too narrow.
 - Do not include explanations, numbering, markdown, or comments.
 
 Freshness rules:
@@ -244,39 +253,98 @@ Output rules:
 """
 
 
-
 def extract_json_object(text):
-    text = text.strip()
+    text = str(text or "").strip()
+
     if text.startswith("```"):
-        text = text.strip("`")
+        text = text.strip("`").strip()
         if text.lower().startswith("json"):
             text = text[4:].strip()
+
     start = text.find("{")
     end = text.rfind("}")
+
     if start != -1 and end != -1 and end > start:
         text = text[start:end + 1]
+
     return json.loads(text)
 
 
-def suggest_news_queries(topic: str, n: int = 5):
+def suggest_news_queries(topic: str, user_prompt: str = "", n: int = 5):
     if not topic or not topic.strip():
         raise ValueError("Topic cannot be empty.")
 
     topic = topic.strip()
+    user_prompt = user_prompt.strip()
     today = datetime.now().strftime("%Y-%m-%d")
-    prompt = f"""
-Today is {today}. Use this date only to understand what counts as current or recent. Do not automatically include a year in the queries.
 
-Topic: {topic}
+    monitoring_instruction = (
+        user_prompt
+        if user_prompt
+        else "No additional monitoring instruction provided. Generate queries based only on the topic."
+    )
+
+    prompt = f"""
+Today is {today}.
+Use this date only to understand what counts as current or recent.
+Do not automatically include a year in the queries.
+
+Topic:
+{topic}
+
+Optional user monitoring instruction:
+{monitoring_instruction}
 
 Generate {n} Google News RSS search queries focused on geopolitical, conflict, diplomatic, security, humanitarian, and regional-risk developments.
 
+Requirements:
+- Short keyword queries.
+- 2, max 3 words per query when possible.
+- One geopolitical angle per query.
+- Broad enough to return articles.
+- Specific enough to stay relevant.
+- Prefer high-signal developments.
+- Reflect the optional user monitoring instruction when provided.
+- If no monitoring instruction is provided, generate strong general-purpose queries based only on the topic.
+- Do not overfit to the instruction so much that queries become too narrow.
+- Include at least one broad core query.
+- Include a mix of military, diplomatic, sanctions, humanitarian, regional spillover, energy, or international-institution angles when relevant.
+- Do not include raw explanations.
+
 Good examples for topic "Iran war":
-Iran war
+Iran conflict
 Iran Israel escalation
 US Iran talks
 Iran sanctions
 Hormuz oil risk
+
+Good examples for topic "Ukraine war":
+Ukraine war
+Russia Ukraine front line
+Russia missile strikes
+Ukraine peace talks
+NATO Ukraine aid
+
+Good examples for topic "Gaza":
+Gaza ceasefire
+Israel Gaza war
+Gaza humanitarian aid
+hostage negotiations
+UN Gaza crisis
+
+Good examples for topic "Red Sea":
+Red Sea shipping
+Houthis attacks
+Red Sea oil risk
+US strikes Yemen
+shipping route disruption
+
+Bad examples:
+Iran Israel US sanctions ceasefire diplomacy oil risk
+Ukraine Russia NATO weapons aid front line peace talks
+Middle East conflict diplomacy sanctions refugees oil shipping crisis
+Iran war 2024
+Ukraine war latest 2023
 
 Return JSON in this exact shape:
 {{"queries": ["query one", "query two"]}}
@@ -288,19 +356,26 @@ Return JSON in this exact shape:
         model=os.getenv("OPENAI_QUERY_MODEL", "gpt-4.1-mini"),
         temperature=0.4,
     )
+
     data = extract_json_object(output_text)
 
     cleaned = []
     seen = set()
+
     for q in data.get("queries", []):
         q = str(q).strip()
+
         if not q:
             continue
+
         key = q.lower()
+
         if key in seen:
             continue
+
         seen.add(key)
         cleaned.append(q)
+
     return cleaned[:n]
 
 
@@ -309,18 +384,24 @@ _embedding_model = None
 
 def get_embedding_model():
     global _embedding_model
+
     if SentenceTransformer is None or util is None:
         return None
+
     if _embedding_model is None:
         _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+
     return _embedding_model
 
 
 def fetch_google_news(topic: str, max_articles: int = 50):
     params = urlencode({"q": topic, "hl": "en-US", "gl": "US", "ceid": "US:en"})
     url = f"https://news.google.com/rss/search?{params}"
+
     feed = feedparser.parse(url)
+
     articles = []
+
     for entry in feed.entries[:max_articles]:
         articles.append({
             "title": entry.title if "title" in entry else "",
@@ -329,6 +410,7 @@ def fetch_google_news(topic: str, max_articles: int = 50):
             "source": entry.source.title if "source" in entry else "",
             "query": topic,
         })
+
     return pd.DataFrame(articles)
 
 
@@ -336,30 +418,138 @@ def fetch_multiple_queries(queries, max_articles_per_query=50):
     dfs = []
     query_counts = {}
     total_raw_downloaded = 0
+
     for q in queries:
-        q = q.strip()
+        q = str(q).strip()
+
         if not q:
             continue
+
         df = fetch_google_news(q, max_articles_per_query)
         count = len(df)
+
         query_counts[q] = count
         total_raw_downloaded += count
+
         if not df.empty:
             dfs.append(df)
+
     if not dfs:
         return pd.DataFrame(), total_raw_downloaded, 0, query_counts
+
     df = pd.concat(dfs, ignore_index=True)
+
     if "link" in df.columns:
         df = df.drop_duplicates(subset="link")
+
     return df.reset_index(drop=True), total_raw_downloaded, len(df), query_counts
+
+
+def fetch_article_body(url, max_chars=3000, timeout=10):
+    if not url or not isinstance(url, str):
+        return ""
+
+    try:
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0 Safari/537.36"
+            )
+        }
+
+        response = requests.get(
+            url,
+            headers=headers,
+            timeout=timeout,
+            allow_redirects=True,
+        )
+
+        response.raise_for_status()
+
+        content_type = response.headers.get("Content-Type", "").lower()
+
+        if "text/html" not in content_type:
+            return ""
+
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        for tag in soup([
+            "script",
+            "style",
+            "nav",
+            "footer",
+            "header",
+            "aside",
+            "form",
+            "noscript",
+            "iframe",
+        ]):
+            tag.decompose()
+
+        paragraphs = []
+
+        for p in soup.find_all("p"):
+            text = p.get_text(" ", strip=True)
+
+            if len(text) < 40:
+                continue
+
+            lower = text.lower()
+
+            skip_phrases = [
+                "sign up",
+                "subscribe",
+                "cookie",
+                "privacy policy",
+                "terms of service",
+                "all rights reserved",
+                "advertisement",
+                "read more",
+                "follow us",
+                "share this article",
+            ]
+
+            if any(phrase in lower for phrase in skip_phrases):
+                continue
+
+            paragraphs.append(text)
+
+        article_text = "\n".join(paragraphs)
+        article_text = " ".join(article_text.split())
+
+        return article_text[:max_chars]
+
+    except Exception:
+        return ""
+
+
+def enrich_top_articles_with_body(df, top_k=5, max_chars=3000):
+    if df.empty:
+        return df
+
+    df = df.copy()
+    df["body"] = ""
+
+    top_k = min(top_k, len(df))
+
+    for idx in df.head(top_k).index:
+        url = str(df.at[idx, "link"])
+        body = fetch_article_body(url, max_chars=max_chars)
+        df.at[idx, "body"] = body
+
+    return df
 
 
 def parse_date(date_str):
     try:
         dt = parsedate_to_datetime(date_str)
+
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
+
         return dt
+
     except Exception:
         return None
 
@@ -367,70 +557,114 @@ def parse_date(date_str):
 def filter_recent_articles(df, max_age_hours):
     if df.empty:
         return df
+
     now = datetime.now(timezone.utc)
 
     def is_recent(date_str):
         published = parse_date(date_str)
+
         if not published:
             return False
+
         hours_old = (now - published).total_seconds() / 3600
+
         return 0 <= hours_old <= max_age_hours
 
     return df[df["published"].apply(is_recent)].reset_index(drop=True)
 
 
 def _keyword_score(text, topic):
-    text_l = text.lower()
-    terms = [t for t in topic.lower().replace("-", " ").split() if len(t) > 2]
+    text_l = str(text or "").lower()
+
+    terms = [
+        t
+        for t in topic.lower().replace("-", " ").split()
+        if len(t) > 2
+    ]
+
     if not terms:
         return 0.0
-    hits = sum(1 for t in terms if t in text_l)
-    return min(1.0, hits / max(1, len(set(terms))))
+
+    unique_terms = set(terms)
+    hits = sum(1 for t in unique_terms if t in text_l)
+
+    return min(1.0, hits / max(1, len(unique_terms)))
 
 
 def rank_articles(df, topic, recency_window_hours=72, ranking_mode="keyword"):
     if df.empty:
         return df
+
     df = df.copy()
     now = datetime.now(timezone.utc)
-    texts = (df["title"].fillna("") + " " + df["source"].fillna("") + " " + df["query"].fillna("")).tolist()
+
+    texts = (
+        df["title"].fillna("") + " " +
+        df["source"].fillna("") + " " +
+        df["query"].fillna("")
+    ).tolist()
 
     model = get_embedding_model() if ranking_mode == "local_embeddings" else None
+
     if model is not None and util is not None:
         ranking_query = topic + " " + " ".join(df["query"].dropna().unique())
+
         query_embedding = model.encode(ranking_query, convert_to_tensor=True)
         article_embeddings = model.encode(texts, convert_to_tensor=True)
-        similarities = util.cos_sim(query_embedding, article_embeddings)[0].cpu().numpy()
+
+        similarities = util.cos_sim(
+            query_embedding,
+            article_embeddings,
+        )[0].cpu().numpy()
+
         df["relevance"] = similarities
+
     else:
         df["relevance"] = [_keyword_score(t, topic) for t in texts]
 
     def recency(date_str):
         d = parse_date(date_str)
+
         if not d:
             return 0.0
+
         hours_old = (now - d).total_seconds() / 3600
+
         return max(0.0, 1.0 - hours_old / max(1, recency_window_hours))
 
     df["recency"] = df["published"].apply(recency)
     df["score"] = df["relevance"] * 0.8 + df["recency"] * 0.2
+
     df = df.sort_values("score", ascending=False).reset_index(drop=True)
     df.insert(0, "rank", df.index + 1)
+
     return df
 
 
 def summarize(df, topic, n=5):
     if df.empty:
-        return "No recent articles found for this time filter."
+        return {
+            "bullets": [],
+            "takeaway": "No recent articles found for this time filter.",
+        }
 
     articles_text = ""
+
     for _, r in df.head(n).iterrows():
+        body = str(r.get("body", "")).strip()
+
+        if body:
+            body_section = f"Article body excerpt:\n{body}"
+        else:
+            body_section = "Article body excerpt: Not available. Use only the headline and metadata for this item."
+
         articles_text += f"""
-Rank: {r.get('rank', '')}
-Title: {r.get('title', '')}
-Source: {r.get('source', '')}
-Date: {r.get('published', '')}
-Query: {r.get('query', '')}
+Article rank: {r.get("rank", "")}
+Title: {r.get("title", "")}
+Source: {r.get("source", "")}
+Date: {r.get("published", "")}
+Query: {r.get("query", "")}
+{body_section}
 """
 
     prompt = f"""
@@ -440,7 +674,7 @@ Topic: {topic}
 
 You are given recent news articles. Some include article body excerpts. Some may include only headlines and metadata.
 
-Your task is to synthesize them into a structured geopolitical summary.
+Your task is to synthesize them into a structured geopolitical briefing.
 
 Critical reliability rules:
 
@@ -448,71 +682,151 @@ Critical reliability rules:
 - Do not invent facts that are not supported by the provided text.
 - If an article body is unavailable, rely only on the headline and metadata for that article.
 - Do not imply that you read full articles when only excerpts are provided.
+- Do not overstate certainty.
+- Distinguish clearly between confirmed events, reported claims, diplomatic statements, warnings, negotiations, cease-fires, and expectations.
+- Do not speculate beyond what is supported by the provided article material.
 
-Instructions:
+Article reference rules:
 
-- Produce 4 to 7 bullet points when enough information is available.
+- Every bullet must include article_refs.
+- article_refs must contain only article rank numbers that directly support the bullet.
+- Do not cite an article unless it directly supports the bullet.
+- Do not include article references inside the bullet text itself.
+- Do not mention source names inside the bullet text.
+- Do not print raw URLs.
+- If a bullet synthesizes several related articles, cite all directly supporting article ranks.
+
+Synthesis rules:
+
+- Prefer synthesis over one-article-per-bullet summaries.
+- When multiple articles describe the same theme, development, actor, risk, negotiation, military event, or regional consequence, combine them into one bullet.
+- A bullet may cite multiple article_refs when several articles support the same analytical point.
+- Avoid producing one bullet per article unless the articles are genuinely unrelated.
+- Do not force one separate bullet for each article.
+- Do not force 5 bullets just because 5 articles were provided.
+- Use fewer bullets when the articles overlap or describe the same broader development.
+- If two articles both discuss the same cease-fire, escalation, diplomatic effort, sanctions move, military incident, or humanitarian issue, merge them into one stronger briefing point.
+- If one article provides context and another provides a related update, combine them when this improves clarity.
+- The final briefing should feel like an analyst synthesis, not a list of article summaries.
+
+Briefing quality requirements:
+
+- Produce 4 to 7 bullets provided that enough information is available.
 - Each bullet should be 1 to 3 sentences.
+- Each bullet should read like a polished geopolitical briefing point, not like a headline.
 - Each bullet should represent a distinct, meaningful geopolitical development.
-- Combine related headlines into a single insight.
+- Each bullet should explain the development, the key actors involved, and the geopolitical significance when supported by the article material.
+- Combine related headlines into a single coherent analytical point.
 - Avoid repeating the same story across multiple bullets.
 - Prioritize what is new, material, or strategically important.
-- Briefly explain why each development matters when the provided text supports it.
-- Focus on:
-  • military actions, attacks, ceasefires, front lines, or escalation
-  • diplomacy, negotiations, sanctions, mediation, or international pressure
-  • involvement of major countries, leaders, armed groups, alliances, or institutions
-  • humanitarian impact, civilian risk, refugees, aid, or displacement
-  • regional spillover, energy risk, shipping risk, border tensions, or security implications
-
-- Ignore minor, redundant, or low-signal updates.
-- Do not simply restate headlines.
 - Order bullets by importance.
-- Do not print raw URLs.
-- Do not mention source names in the summary.
-- Keep the output readable.
-- Do not use markdown hyperlinks.
+- Keep the writing professional, neutral, and information-dense.
 
-Style:
+Output format:
 
-- Professional, neutral, and information-dense.
-- Concise but informative.
-- Avoid unnecessary detail.
-- Avoid speculation beyond what is supported by the provided news text.
+Return only valid JSON.
 
-End with:
+Return the result in this exact shape:
 
-Takeaway: <clear and professional synthesis of the overall geopolitical situation or direction>
+{{
+  "bullets": [
+    {{
+      "text": "A polished, analytical briefing bullet.",
+      "article_refs": [1, 3]
+    }}
+  ],
+  "takeaway": "A clear, professional synthesis of the overall geopolitical situation, direction, or risk picture."
+}}
+
+Field rules:
+
+- "text" must contain the full briefing bullet.
+- "text" must not contain article reference numbers.
+- "text" must not contain raw URLs.
+- "article_refs" must be an array of integers.
+- "article_refs" must only use article ranks provided in the News section.
+- "takeaway" should be one concise paragraph.
+- Do not add any fields other than "bullets" and "takeaway".
+
 News:
 {articles_text}
 """
-    return chat_text(
-        "You are a professional geopolitical analyst. Follow the user's instructions exactly and do not claim to have read article bodies.",
+
+    output_text = chat_text(
+        "You are a professional geopolitical analyst. Return only valid JSON.",
         prompt,
         model=os.getenv("OPENAI_SUMMARY_MODEL", "gpt-4.1"),
         temperature=0.2,
     )
 
+    try:
+        data = extract_json_object(output_text)
+    except Exception:
+        return {
+            "bullets": [],
+            "takeaway": output_text,
+        }
+
+    if not isinstance(data, dict):
+        return {
+            "bullets": [],
+            "takeaway": "Summary could not be parsed.",
+        }
+
+    data.setdefault("bullets", [])
+    data.setdefault("takeaway", "")
+
+    return data
+
 
 def run_monitor(topic, queries, max_articles=50, top_n=5, max_age_hours=24, ranking_mode="keyword"):
-    active_queries = [q.strip() for q in queries if q.strip()]
-    df, raw_downloaded, unique_articles, query_counts = fetch_multiple_queries(active_queries, max_articles)
+    active_queries = [str(q).strip() for q in queries if str(q).strip()]
+
+    df, raw_downloaded, unique_articles, query_counts = fetch_multiple_queries(
+        active_queries,
+        max_articles,
+    )
+
     df = filter_recent_articles(df, max_age_hours)
-    ranked = rank_articles(df, topic, recency_window_hours=max_age_hours, ranking_mode=ranking_mode)
+
+    ranked = rank_articles(
+        df,
+        topic,
+        recency_window_hours=max_age_hours,
+        ranking_mode=ranking_mode,
+    )
+
     ranked = ranked.head(max_articles).reset_index(drop=True)
+
     if not ranked.empty:
         ranked["rank"] = ranked.index + 1
+
+    ranked = enrich_top_articles_with_body(
+        ranked,
+        top_k=top_n,
+        max_chars=3000,
+    )
+
     summary = summarize(ranked, topic, top_n)
 
     table_cols = ["rank", "score", "title", "source", "published", "link"]
+
     articles = []
+
     for _, row in ranked.iterrows():
         item = {col: row.get(col, "") for col in table_cols}
+
         try:
             item["score"] = round(float(item["score"]), 3)
         except Exception:
             item["score"] = 0
+
         articles.append(item)
+
+    body_count = 0
+
+    if "body" in ranked.columns:
+        body_count = ranked["body"].fillna("").astype(str).str.strip().ne("").sum()
 
     return {
         "articles": articles,
@@ -522,6 +836,7 @@ def run_monitor(topic, queries, max_articles=50, top_n=5, max_age_hours=24, rank
             "unique_articles": unique_articles,
             "recent_articles": len(df),
             "articles_shown": len(articles),
+            "article_bodies_read": int(body_count),
             "query_counts": query_counts,
         },
     }
