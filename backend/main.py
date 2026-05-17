@@ -11,6 +11,7 @@ from news_logic import suggest_news_queries, run_monitor
 app = FastAPI(title="Geopolitical News Intelligence API", version="1.0.0")
 
 allowed_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in allowed_origins],
@@ -22,6 +23,7 @@ app.add_middleware(
 
 class SuggestRequest(BaseModel):
     topic: str = Field(..., min_length=1)
+    user_prompt: str = ""
     n: int = Field(5, ge=1, le=50)
 
 
@@ -51,9 +53,18 @@ def health():
 @app.post("/api/suggest-queries", response_model=SuggestResponse)
 def suggest(req: SuggestRequest):
     try:
-        return {"queries": suggest_news_queries(req.topic, req.n)}
+        return {
+            "queries": suggest_news_queries(
+                topic=req.topic,
+                user_prompt=req.user_prompt,
+                n=req.n,
+            )
+        }
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"{exc}\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"{exc}\n{traceback.format_exc()}",
+        )
 
 
 @app.post("/api/run-monitor")
@@ -68,4 +79,7 @@ def run(req: RunRequest):
             ranking_mode=req.ranking_mode,
         )
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"{exc}\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"{exc}\n{traceback.format_exc()}",
+        )
