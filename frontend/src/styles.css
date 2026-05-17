@@ -73,3 +73,39 @@
 .briefing-body {
   @apply min-h-[360px] whitespace-pre-wrap rounded-xl border border-white/10 bg-white/[0.055] p-4 text-sm leading-7 text-slate-100 shadow-inner sm:min-h-[520px] md:min-h-[800px] md:p-5 md:text-[15px];
 }
+
+/* New monitor configuration layout */
+
+.monitor-form-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.monitor-controls-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.monitor-actions-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.2fr) minmax(180px, 1fr);
+  gap: 0.75rem;
+  align-items: end;
+}
+
+@media (max-width: 1100px) {
+  .monitor-controls-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .monitor-actions-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .monitor-controls-row {
+    grid-template-columns: 1fr;
+  }
+}
