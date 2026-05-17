@@ -247,7 +247,7 @@ function App() {
       setArticles(nextArticles)
       setSummary(data.summary || null)
       setStatus(
-        `Done. ${nextArticles.length} articles shown. Article bodies read: ${bodiesRead}.`
+        `Done. ${nextArticles.length} articles shown.`
       )
     } catch (err) {
       setError(cleanError(err))
