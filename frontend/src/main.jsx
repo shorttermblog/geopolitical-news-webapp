@@ -299,22 +299,19 @@ function App() {
               </div>
 
               <div className="space-y-2">
-                <FieldLabel>Monitoring angle</FieldLabel>
+                <FieldLabel>Angle</FieldLabel>
                 <textarea
-                  className="textarea h-40"
+                  className="textarea h-28 sm:h-40"
                   value={keywordPrompt}
                   onChange={(e) => setKeywordPrompt(e.target.value)}
-                  placeholder="Optional: describe the monitoring angle, e.g. focus on oil risk, Hormuz, US involvement, sanctions, ceasefire diplomacy, humanitarian impact, or market relevance."
+                  placeholder="Optional: oil, Hormuz, US role, sanctions, ceasefire, markets..."
                 />
-                <p className="text-xs font-medium text-slate-500">
-                  Used when suggesting RSS queries.
-                </p>
               </div>
 
               <div className="space-y-2">
                 <FieldLabel>Queries</FieldLabel>
                 <textarea
-                  className="textarea h-40"
+                  className="textarea h-28 sm:h-40"
                   value={queries}
                   onChange={(e) => setQueries(e.target.value)}
                 />
@@ -324,12 +321,12 @@ function App() {
             <div className="bottom-control-row">
               <div className="parameters-card">
                 <h3 className="mb-4 text-base font-semibold text-slate-950">
-                  Monitoring parameters
+                  Parameters
                 </h3>
 
                 <div className="parameters-grid">
                   <div className="space-y-2">
-                    <FieldLabel>Max articles per query</FieldLabel>
+                    <FieldLabel>Max articles</FieldLabel>
                     <input
                       className="input"
                       type="number"
@@ -338,13 +335,10 @@ function App() {
                       value={maxArticles}
                       onChange={(e) => setMaxArticles(e.target.value)}
                     />
-                    <p className="text-xs font-medium text-slate-500">
-                      1 – 500
-                    </p>
                   </div>
 
                   <div className="space-y-2">
-                    <FieldLabel>Articles to rank</FieldLabel>
+                    <FieldLabel>Rank</FieldLabel>
                     <input
                       className="input"
                       type="number"
@@ -353,13 +347,10 @@ function App() {
                       value={topN}
                       onChange={(e) => setTopN(e.target.value)}
                     />
-                    <p className="text-xs font-medium text-slate-500">
-                      1 – 50
-                    </p>
                   </div>
 
                   <div className="space-y-2">
-                    <FieldLabel>Max article age</FieldLabel>
+                    <FieldLabel>Age hours</FieldLabel>
                     <input
                       className="input"
                       type="number"
@@ -368,13 +359,10 @@ function App() {
                       value={maxAgeHours}
                       onChange={(e) => setMaxAgeHours(e.target.value)}
                     />
-                    <p className="text-xs font-medium text-slate-500">
-                      1 – 480 hours
-                    </p>
                   </div>
 
                   <div className="space-y-2">
-                    <FieldLabel>Suggested queries</FieldLabel>
+                    <FieldLabel>Suggested</FieldLabel>
                     <input
                       className="input"
                       type="number"
@@ -383,9 +371,6 @@ function App() {
                       value={queryCount}
                       onChange={(e) => setQueryCount(e.target.value)}
                     />
-                    <p className="text-xs font-medium text-slate-500">
-                      1 – 50
-                    </p>
                   </div>
                 </div>
               </div>
@@ -406,7 +391,7 @@ function App() {
                     ) : (
                       <Sparkles className="h-4 w-4" />
                     )}
-                    Suggest Queries
+                    Suggest
                   </button>
 
                   <button
@@ -419,7 +404,7 @@ function App() {
                     ) : (
                       <RefreshCw className="h-4 w-4" />
                     )}
-                    Run Monitor
+                    Run
                   </button>
 
                   <button
@@ -428,7 +413,7 @@ function App() {
                     disabled={!articles.length}
                   >
                     <Download className="h-4 w-4" />
-                    Export CSV
+                    CSV
                   </button>
                 </div>
               </div>
@@ -617,8 +602,7 @@ function App() {
                   AI Briefing
                 </h2>
                 <p className="text-xs font-medium text-slate-400">
-                  Generated from ranked RSS metadata and available article
-                  excerpts.
+                  Generated from ranked articles.
                 </p>
               </div>
             </div>
