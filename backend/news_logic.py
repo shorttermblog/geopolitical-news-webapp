@@ -394,11 +394,61 @@ def get_embedding_model():
     return _embedding_model
 
 
+
+def normalize_queries(queries):
+    """Normalize query input from either a list or a multiline text box string."""
+    if queries is None:
+        return []
+
+    if isinstance(queries, str):
+        queries = queries.splitlines()
+
+    cleaned = []
+    seen = set()
+
+    for q in queries:
+        q = str(q).strip()
+
+        if not q:
+            continue
+
+        key = q.lower()
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+        cleaned.append(q)
+
+    return cleaned
+
 def fetch_google_news(topic: str, max_articles: int = 50):
     params = urlencode({"q": topic, "hl": "en-US", "gl": "US", "ceid": "US:en"})
     url = f"https://news.google.com/rss/search?{params}"
 
-    feed = feedparser.parse(url)
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0 Safari/537.36"
+        )
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        feed = feedparser.parse(response.content)
+    except Exception as e:
+        print(f"[RSS ERROR] query={topic!r} url={url} error={e}")
+        return pd.DataFrame()
+
+    if getattr(feed, "bozo", False):
+        print(
+            f"[RSS PARSE WARNING] query={topic!r} "
+            f"bozo_exception={getattr(feed, 'bozo_exception', None)}"
+        )
+
+    print(f"[RSS DEBUG] query={topic!r} entries={len(feed.entries)} url={url}")
 
     articles = []
 
@@ -780,14 +830,41 @@ News:
 
 
 def run_monitor(topic, queries, max_articles=50, top_n=5, max_age_hours=24, ranking_mode="keyword"):
-    active_queries = [str(q).strip() for q in queries if str(q).strip()]
+    active_queries = normalize_queries(queries)
+
+    print("[DEBUG] active_queries:", active_queries)
+
+    if not active_queries:
+        return {
+            "articles": [],
+            "summary": {
+                "bullets": [],
+                "takeaway": "No search queries were provided.",
+            },
+            "stats": {
+                "raw_downloaded": 0,
+                "unique_articles": 0,
+                "recent_articles": 0,
+                "articles_shown": 0,
+                "article_bodies_read": 0,
+                "query_counts": {},
+            },
+        }
 
     df, raw_downloaded, unique_articles, query_counts = fetch_multiple_queries(
         active_queries,
         max_articles,
     )
 
+    print("[DEBUG] raw_downloaded:", raw_downloaded)
+    print("[DEBUG] unique_articles:", unique_articles)
+    print("[DEBUG] query_counts:", query_counts)
+
+    before_recent_filter = len(df)
     df = filter_recent_articles(df, max_age_hours)
+    print("[DEBUG] before_recent_filter:", before_recent_filter)
+    print("[DEBUG] after_recent_filter:", len(df))
+    print("[DEBUG] max_age_hours:", max_age_hours)
 
     ranked = rank_articles(
         df,
