@@ -4,6 +4,8 @@ import time
 import random
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from typing import List, Union
+
 from urllib.parse import urlencode
 
 import feedparser
@@ -12,12 +14,54 @@ import requests
 from bs4 import BeautifulSoup
 from openai import OpenAI
 
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
 try:
     from sentence_transformers import SentenceTransformer, util
 except Exception:
     SentenceTransformer = None
     util = None
 
+
+# ============================================================
+# FastAPI app
+# ============================================================
+
+app = FastAPI()
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/")
+def home():
+    return FileResponse("static/index.html")
+
+
+# ============================================================
+# Request models
+# ============================================================
+
+class SuggestQueriesRequest(BaseModel):
+    topic: str
+    user_prompt: str = ""
+    n: int = 5
+
+
+class RunMonitorRequest(BaseModel):
+    topic: str
+    queries: Union[List[str], str]
+    max_articles: int = 50
+    top_n: int = 5
+    max_age_hours: int = 24
+    ranking_mode: str = "keyword"
+
+
+# ============================================================
+# OpenAI
+# ============================================================
 
 def get_openai_client():
     api_key = os.getenv("OPENAI_API_KEY")
@@ -29,7 +73,11 @@ def get_openai_client():
 
 
 def chat_text(system_prompt, user_prompt, model, temperature=0.4):
-    """Use Chat Completions because the Render OpenAI package may not support Responses."""
+    """
+    Uses Chat Completions because some Render OpenAI package versions
+    may not support the Responses API.
+    """
+
     client = get_openai_client()
 
     response = client.chat.completions.create(
@@ -49,6 +97,10 @@ def chat_text(system_prompt, user_prompt, model, temperature=0.4):
 
     return response.choices[0].message.content or ""
 
+
+# ============================================================
+# Query suggestion prompt
+# ============================================================
 
 KEYWORD_SUGGESTION_SYSTEM_PROMPT = """
 You are a professional geopolitical news monitoring assistant.
@@ -265,6 +317,10 @@ Output rules:
 """
 
 
+# ============================================================
+# Utilities
+# ============================================================
+
 def extract_json_object(text):
     text = str(text or "").strip()
 
@@ -282,6 +338,45 @@ def extract_json_object(text):
 
     return json.loads(text)
 
+
+def normalize_queries(queries):
+    """
+    Normalizes query input.
+
+    This protects the app when the frontend sends a multiline string instead
+    of a Python list. Without this, Python can iterate through the string
+    character by character.
+    """
+
+    if queries is None:
+        return []
+
+    if isinstance(queries, str):
+        queries = queries.splitlines()
+
+    cleaned = []
+    seen = set()
+
+    for q in queries:
+        q = str(q).strip()
+
+        if not q:
+            continue
+
+        key = q.lower()
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+        cleaned.append(q)
+
+    return cleaned
+
+
+# ============================================================
+# Query suggestion
+# ============================================================
 
 def suggest_news_queries(topic: str, user_prompt: str = "", n: int = 5):
     if not topic or not topic.strip():
@@ -392,6 +487,10 @@ Return JSON in this exact shape:
     return cleaned[:n]
 
 
+# ============================================================
+# Embeddings
+# ============================================================
+
 _embedding_model = None
 
 
@@ -407,40 +506,9 @@ def get_embedding_model():
     return _embedding_model
 
 
-def normalize_queries(queries):
-    """
-    Normalizes query input.
-
-    This protects the app when the frontend sends a multiline string instead
-    of a Python list. Without this, Python can iterate through the string
-    character by character.
-    """
-
-    if queries is None:
-        return []
-
-    if isinstance(queries, str):
-        queries = queries.splitlines()
-
-    cleaned = []
-    seen = set()
-
-    for q in queries:
-        q = str(q).strip()
-
-        if not q:
-            continue
-
-        key = q.lower()
-
-        if key in seen:
-            continue
-
-        seen.add(key)
-        cleaned.append(q)
-
-    return cleaned
-
+# ============================================================
+# Google News RSS fetching
+# ============================================================
 
 def fetch_google_news_rss(url: str, query_label: str = "", max_attempts: int = 4):
     """
@@ -594,6 +662,10 @@ def fetch_multiple_queries(queries, max_articles_per_query=50):
     return df.reset_index(drop=True), total_raw_downloaded, len(df), query_counts
 
 
+# ============================================================
+# Article body extraction
+# ============================================================
+
 def fetch_article_body(url, max_chars=3000, timeout=10):
     if not url or not isinstance(url, str):
         return ""
@@ -692,6 +764,10 @@ def enrich_top_articles_with_body(df, top_k=5, max_chars=3000):
     return df
 
 
+# ============================================================
+# Date filtering
+# ============================================================
+
 def parse_date(date_str):
     try:
         dt = parsedate_to_datetime(date_str)
@@ -723,6 +799,10 @@ def filter_recent_articles(df, max_age_hours):
 
     return df[df["published"].apply(is_recent)].reset_index(drop=True)
 
+
+# ============================================================
+# Ranking
+# ============================================================
 
 def _keyword_score(text, topic):
     text_l = str(text or "").lower()
@@ -800,6 +880,10 @@ def rank_articles(df, topic, recency_window_hours=72, ranking_mode="keyword"):
 
     return df
 
+
+# ============================================================
+# Summarization
+# ============================================================
 
 def summarize(df, topic, n=5):
     if df.empty:
@@ -939,6 +1023,10 @@ News:
     return data
 
 
+# ============================================================
+# Main monitor function
+# ============================================================
+
 def run_monitor(
     topic,
     queries,
@@ -1046,4 +1134,48 @@ def run_monitor(
             "article_bodies_read": int(body_count),
             "query_counts": query_counts,
         },
+    }
+
+
+# ============================================================
+# API routes
+# ============================================================
+
+@app.post("/api/suggest-queries")
+def api_suggest_queries(payload: SuggestQueriesRequest):
+    queries = suggest_news_queries(
+        topic=payload.topic,
+        user_prompt=payload.user_prompt,
+        n=payload.n,
+    )
+
+    return {
+        "queries": queries,
+    }
+
+
+@app.post("/api/run-monitor")
+def api_run_monitor(payload: RunMonitorRequest):
+    result = run_monitor(
+        topic=payload.topic,
+        queries=payload.queries,
+        max_articles=payload.max_articles,
+        top_n=payload.top_n,
+        max_age_hours=payload.max_age_hours,
+        ranking_mode=payload.ranking_mode,
+    )
+
+    return result
+
+
+@app.get("/api/health")
+def api_health():
+    return {
+        "status": "ok",
+        "routes": [
+            "GET /",
+            "POST /api/suggest-queries",
+            "POST /api/run-monitor",
+            "GET /api/health",
+        ],
     }
