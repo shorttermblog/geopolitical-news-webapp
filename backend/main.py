@@ -1,6 +1,6 @@
 import os
 import traceback
-from typing import List, Literal
+from typing import List, Literal, Union
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,7 +8,16 @@ from pydantic import BaseModel, Field
 
 from news_logic import suggest_news_queries, run_monitor
 
-app = FastAPI(title="Geopolitical News Intelligence API", version="1.0.0")
+
+app = FastAPI(
+    title="Geopolitical News Intelligence API",
+    version="1.0.0",
+)
+
+
+# ============================================================
+# CORS
+# ============================================================
 
 allowed_origins = os.getenv("CORS_ORIGINS", "*").split(",")
 
@@ -20,6 +29,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# ============================================================
+# Root route
+# ============================================================
+
+@app.get("/")
+def root():
+    return {
+        "ok": True,
+        "message": "Geopolitical News Intelligence API is running.",
+        "routes": [
+            "GET /",
+            "GET /api/health",
+            "POST /api/suggest-queries",
+            "POST /api/run-monitor",
+        ],
+    }
+
+
+# ============================================================
+# Request / response models
+# ============================================================
 
 class SuggestRequest(BaseModel):
     topic: str = Field(..., min_length=1)
@@ -33,16 +64,26 @@ class SuggestResponse(BaseModel):
 
 class RunRequest(BaseModel):
     topic: str = Field(..., min_length=1)
-    queries: List[str] = Field(..., min_length=1)
+
+    # Accepts either:
+    # - a normal list: ["Iran war", "Iran sanctions"]
+    # - a multiline textarea string: "Iran war\nIran sanctions"
+    queries: Union[List[str], str]
+
     max_articles: int = Field(50, ge=1, le=500)
     top_n: int = Field(5, ge=1, le=50)
     max_age_hours: int = Field(24, ge=1, le=480)
     ranking_mode: Literal["local_embeddings", "keyword"] = "keyword"
 
 
+# ============================================================
+# API routes
+# ============================================================
+
 @app.get("/api/health")
 def health():
     key = os.getenv("OPENAI_API_KEY")
+
     return {
         "ok": True,
         "openai_key_configured": bool(key),
@@ -60,6 +101,7 @@ def suggest(req: SuggestRequest):
                 n=req.n,
             )
         }
+
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -78,6 +120,7 @@ def run(req: RunRequest):
             max_age_hours=req.max_age_hours,
             ranking_mode=req.ranking_mode,
         )
+
     except Exception as exc:
         raise HTTPException(
             status_code=500,
